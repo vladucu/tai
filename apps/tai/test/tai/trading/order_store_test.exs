@@ -1,20 +1,35 @@
 defmodule Tai.Trading.OrderStoreTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   doctest Tai.Trading.OrderStore
+  import Tai.TestSupport.Assertions.Event
   alias Tai.Trading.OrderStore
 
   @store_id __MODULE__
 
   setup do
+    start_supervised!({Tai.Events, 1})
     {:ok, _} = start_supervised({OrderStore, [id: @store_id]})
     :ok
   end
 
-  test ".enqueue creates an order from the submission" do
-    submission = build_submission()
+  describe ".enqueue" do
+    test "creates an order from the submission" do
+      submission = build_submission()
 
-    assert {:ok, order} = OrderStore.enqueue(submission, @store_id)
-    assert order.status == :enqueued
+      assert {:ok, order} = OrderStore.enqueue(submission, @store_id)
+      assert order.status == :enqueued
+    end
+
+    test "emits an order updated event" do
+      Tai.Events.firehose_subscribe()
+
+      submission = build_submission()
+      assert {:ok, order} = OrderStore.enqueue(submission, @store_id)
+
+      assert_event(%Tai.Events.OrderUpdated{} = event)
+      assert event.client_id == order.client_id
+      assert event.status == :enqueued
+    end
   end
 
   describe ".update" do
@@ -28,6 +43,19 @@ defmodule Tai.Trading.OrderStoreTest do
       assert updated.status == :skip
       assert updated.leaves_qty == Decimal.new(0)
       assert updated.updated_at != nil
+    end
+
+    test "emits an order updated event" do
+      assert {:ok, order} = enqueue()
+
+      Tai.Events.firehose_subscribe()
+
+      action = struct!(Tai.Trading.OrderStore.Actions.Skip, client_id: order.client_id)
+      assert {:ok, {_, updated}} = OrderStore.update(action, @store_id)
+
+      assert_event(%Tai.Events.OrderUpdated{} = event)
+      assert event.client_id == updated.client_id
+      assert event.status == :skip
     end
 
     test "returns an error when the order can't be found" do

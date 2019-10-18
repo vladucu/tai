@@ -25,13 +25,13 @@ defmodule Tai.Trading.Orders.CreateSkipTest do
       {:ok, _} = Orders.create(submission)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         nil,
         %Order{status: :enqueued}
       }
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :enqueued},
         %Order{status: :skip} = skipped_order
       }

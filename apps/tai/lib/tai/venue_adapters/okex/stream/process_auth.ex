@@ -64,7 +64,7 @@ defmodule Tai.VenueAdapters.OkEx.Stream.ProcessAuth do
   end
 
   def handle_info({_reference, response}, state) do
-    response |> notify
+    response |> parse_task_result()
     {:noreply, state}
   end
 
@@ -88,13 +88,11 @@ defmodule Tai.VenueAdapters.OkEx.Stream.ProcessAuth do
 
   def handle_info({:EXIT, _, _}, state), do: {:noreply, state}
 
-  defp notify(:ok), do: nil
+  defp parse_task_result(:ok), do: :ok
 
-  defp notify({:ok, {old, updated}}) do
-    Tai.Trading.NotifyOrderUpdate.notify!(old, updated)
-  end
+  defp parse_task_result({:ok, _}), do: :ok
 
-  defp notify({:error, {:invalid_status, was, required, %action_name{} = action}}) do
+  defp parse_task_result({:error, {:invalid_status, was, required, %action_name{} = action}}) do
     Tai.Events.warn(%Tai.Events.OrderUpdateInvalidStatus{
       was: was,
       required: required,
@@ -103,7 +101,7 @@ defmodule Tai.VenueAdapters.OkEx.Stream.ProcessAuth do
     })
   end
 
-  defp notify({:error, {:not_found, %action_name{} = action}}) do
+  defp parse_task_result({:error, {:not_found, %action_name{} = action}}) do
     Tai.Events.warn(%Tai.Events.OrderUpdateNotFound{
       client_id: action.client_id,
       action: action_name

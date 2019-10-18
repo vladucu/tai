@@ -55,7 +55,7 @@ defmodule Tai.Trading.Orders.AmendErrorTest do
   describe "with an invalid pending amend status" do
     setup(%{submission: submission}) do
       {:ok, order} = Orders.create(submission)
-      assert_receive {:callback_fired, _, %Order{status: :create_error}}
+      assert_receive {:order_updated, _, %Order{status: :create_error}}
 
       {:ok, %{order: order}}
     end
@@ -107,12 +107,12 @@ defmodule Tai.Trading.Orders.AmendErrorTest do
   test "venue error updates status and records the reason", %{submission: submission} do
     Mocks.Responses.Orders.GoodTillCancel.open(@venue_order_id, submission)
     {:ok, _} = Orders.create(submission)
-    assert_receive {:callback_fired, _, %Order{status: :open} = open_order}
+    assert_receive {:order_updated, _, %Order{status: :open} = open_order}
 
     Orders.amend(open_order, %{})
 
     assert_receive {
-      :callback_fired,
+      :order_updated,
       %Order{status: :pending_amend},
       %Order{status: :amend_error} = error_order
     }
@@ -124,13 +124,18 @@ defmodule Tai.Trading.Orders.AmendErrorTest do
   test "rescues adapter errors", %{submission: submission} do
     Mocks.Responses.Orders.GoodTillCancel.open(@venue_order_id, submission)
     {:ok, _order} = Orders.create(submission)
-    assert_receive {:callback_fired, _, %Order{status: :open} = open_order}
-    Mocks.Responses.Orders.Error.amend_raise(open_order, %{}, "Venue Adapter Amend Raised Error")
 
+    assert_receive {
+      :order_updated,
+      _,
+      %Order{status: :open} = open_order
+    }
+
+    Mocks.Responses.Orders.Error.amend_raise(open_order, %{}, "Venue Adapter Amend Raised Error")
     Orders.amend(open_order, %{})
 
     assert_receive {
-      :callback_fired,
+      :order_updated,
       %Order{status: :pending_amend},
       %Order{status: :amend_error} = error_order
     }

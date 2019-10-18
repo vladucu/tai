@@ -28,12 +28,22 @@ defmodule Tai.Trading.Orders.CancelTest do
       Mocks.Responses.Orders.GoodTillCancel.open(@venue_order_id, submission)
 
       {:ok, order} = Orders.create(submission)
-      assert_receive {:callback_fired, %Order{status: :enqueued}, %Order{status: :open}}
+      assert_receive {:order_updated, %Order{status: :enqueued}, %Order{status: :open}}
 
       Mocks.Responses.Orders.GoodTillCancel.canceled(@venue_order_id)
       assert {:ok, %Order{status: :pending_cancel}} = Orders.cancel(order)
-      assert_receive {:callback_fired, %Order{status: :open}, %Order{status: :pending_cancel}}
-      assert_receive {:callback_fired, %Order{status: :pending_cancel}, %Order{status: :canceled}}
+
+      assert_receive {
+        :order_updated,
+        %Order{status: :open},
+        %Order{status: :pending_cancel}
+      }
+
+      assert_receive {
+        :order_updated,
+        %Order{status: :pending_cancel},
+        %Order{status: :canceled}
+      }
     end
   end)
 end

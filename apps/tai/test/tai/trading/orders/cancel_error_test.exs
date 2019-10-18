@@ -47,7 +47,11 @@ defmodule Tai.Trading.Orders.CancelErrorTest do
     start_supervised!(Mocks.Server)
     {:ok, _} = Application.ensure_all_started(:tai)
 
-    submission = Support.OrderSubmissions.build_with_callback(SellLimitGtc)
+    submission =
+      Support.OrderSubmissions.build_with_callback(
+        SellLimitGtc,
+        %{order_updated_callback: self()}
+      )
 
     {:ok, %{submission: submission}}
   end
@@ -56,10 +60,10 @@ defmodule Tai.Trading.Orders.CancelErrorTest do
 
   describe "with an invalid pending cancel status" do
     setup(%{submission: submission}) do
-      {:ok, order} = Orders.create(submission)
-      assert_receive {:callback_fired, _, %Order{status: :create_error}}
+      {:ok, _order} = Orders.create(submission)
+      assert_receive {:order_updated, _, %Order{status: :create_error} = error_order}
 
-      {:ok, %{order: order}}
+      {:ok, %{order: error_order}}
     end
 
     test "returns an error", %{order: order} do
@@ -70,13 +74,13 @@ defmodule Tai.Trading.Orders.CancelErrorTest do
     end
 
     test "emits an invalid status warning", %{order: order} do
-      Tai.Events.firehose_subscribe()
+      Events.firehose_subscribe()
 
       Orders.cancel(order)
 
       assert_receive {
         Tai.Event,
-        %Tai.Events.OrderUpdateInvalidStatus{} = pending_cancel_invalid_event,
+        %Events.OrderUpdateInvalidStatus{} = pending_cancel_invalid_event,
         :warn
       }
 
@@ -117,16 +121,15 @@ defmodule Tai.Trading.Orders.CancelErrorTest do
   end
 
   test "venue error updates status and records the reason", %{submission: submission} do
-    Events.firehose_subscribe()
     Mocks.Responses.Orders.GoodTillCancel.open(@venue_order_id, submission)
-    {:ok, order} = Tai.Trading.Orders.create(submission)
-    assert_receive {Tai.Event, %Events.OrderUpdated{status: :open} = open_event, _}
+    {:ok, _order} = Tai.Trading.Orders.create(submission)
+    assert_receive {:order_updated, _prev, %Order{status: :open} = open_order}
 
-    assert {:ok, _} = Tai.Trading.Orders.cancel(order)
+    assert {:ok, _} = Tai.Trading.Orders.cancel(open_order)
 
-    assert_receive {Tai.Event, %Events.OrderUpdated{status: :cancel_error} = error_event, _}
-    assert error_event.last_received_at != open_event.last_received_at
-    assert error_event.error_reason == :mock_not_found
+    assert_receive {:order_updated, _prev, %Order{status: :cancel_error} = error_order}
+    assert error_order.last_received_at != open_order.last_received_at
+    assert error_order.error_reason == :mock_not_found
   end
 
   test "rescues adapter errors", %{submission: submission} do
@@ -134,7 +137,7 @@ defmodule Tai.Trading.Orders.CancelErrorTest do
     {:ok, order} = Tai.Trading.Orders.create(submission)
 
     assert_receive {
-      :callback_fired,
+      :order_updated,
       %Tai.Trading.Order{status: :enqueued},
       %Tai.Trading.Order{status: :open} = open_order
     }
@@ -147,7 +150,7 @@ defmodule Tai.Trading.Orders.CancelErrorTest do
     assert {:ok, _} = Tai.Trading.Orders.cancel(order)
 
     assert_receive {
-      :callback_fired,
+      :order_updated,
       %Tai.Trading.Order{status: :pending_cancel},
       %Tai.Trading.Order{status: :cancel_error} = error_order
     }

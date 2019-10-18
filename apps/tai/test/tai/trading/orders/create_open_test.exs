@@ -41,13 +41,13 @@ defmodule Tai.Trading.Orders.CreateOpenTest do
       {:ok, _} = Orders.create(submission)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         nil,
         %Order{status: :enqueued}
       }
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :enqueued},
         %Order{status: :open} = open_order
       }

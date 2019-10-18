@@ -95,17 +95,14 @@ defmodule Tai.VenueAdapters.Mock.Stream.Connection do
     cumulative_qty = raw_cumulative_qty |> Decimal.cast()
     leaves_qty = raw_leaves_qty |> Decimal.cast()
 
-    {:ok, {prev_order, updated_order}} =
-      %OrderStore.Actions.PassivePartialFill{
-        client_id: client_id,
-        cumulative_qty: cumulative_qty,
-        leaves_qty: leaves_qty,
-        last_received_at: Timex.now(),
-        last_venue_timestamp: Timex.now()
-      }
-      |> OrderStore.update()
-
-    Tai.Trading.NotifyOrderUpdate.notify!(prev_order, updated_order)
+    %OrderStore.Actions.PassivePartialFill{
+      client_id: client_id,
+      cumulative_qty: cumulative_qty,
+      leaves_qty: leaves_qty,
+      last_received_at: Timex.now(),
+      last_venue_timestamp: Timex.now()
+    }
+    |> OrderStore.update()
   end
 
   defp handle_msg(
@@ -118,16 +115,13 @@ defmodule Tai.VenueAdapters.Mock.Stream.Connection do
        ) do
     cumulative_qty = raw_cumulative_qty |> Decimal.cast()
 
-    {:ok, {prev_order, updated_order}} =
-      %OrderStore.Actions.PassiveFill{
-        client_id: client_id,
-        cumulative_qty: cumulative_qty,
-        last_received_at: Timex.now(),
-        last_venue_timestamp: Timex.now()
-      }
-      |> OrderStore.update()
-
-    Tai.Trading.NotifyOrderUpdate.notify!(prev_order, updated_order)
+    %OrderStore.Actions.PassiveFill{
+      client_id: client_id,
+      cumulative_qty: cumulative_qty,
+      last_received_at: Timex.now(),
+      last_venue_timestamp: Timex.now()
+    }
+    |> OrderStore.update()
   end
 
   defp handle_msg(
@@ -137,15 +131,12 @@ defmodule Tai.VenueAdapters.Mock.Stream.Connection do
          },
          _state
        ) do
-    {:ok, {prev_order, updated_order}} =
-      %OrderStore.Actions.PassiveCancel{
-        client_id: client_id,
-        last_received_at: Timex.now(),
-        last_venue_timestamp: Timex.now()
-      }
-      |> OrderStore.update()
-
-    Tai.Trading.NotifyOrderUpdate.notify!(prev_order, updated_order)
+    %OrderStore.Actions.PassiveCancel{
+      client_id: client_id,
+      last_received_at: Timex.now(),
+      last_venue_timestamp: Timex.now()
+    }
+    |> OrderStore.update()
   end
 
   defp handle_msg(msg, state) do

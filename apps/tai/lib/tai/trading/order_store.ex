@@ -4,7 +4,7 @@ defmodule Tai.Trading.OrderStore do
   """
 
   use GenServer
-  alias Tai.Trading.{Order, OrderSubmissions, OrderStore}
+  alias Tai.Trading.{Order, OrderSubmissions, OrderStore, NotifyOrderUpdate}
 
   @type submission :: OrderSubmissions.Factory.submission()
   @type order :: Order.t()
@@ -39,6 +39,8 @@ defmodule Tai.Trading.OrderStore do
   def handle_call({:enqueue, submission}, _from, state) do
     order = OrderSubmissions.Factory.build!(submission)
     response = state.backend.insert(order, state.name)
+    NotifyOrderUpdate.notify!(nil, order)
+
     {:reply, response, state}
   end
 
@@ -56,6 +58,8 @@ defmodule Tai.Trading.OrderStore do
 
           updated_order = old_order |> Map.merge(new_attrs)
           state.backend.update(updated_order, state.name)
+          NotifyOrderUpdate.notify!(old_order, updated_order)
+
           {:ok, {old_order, updated_order}}
         else
           reason = {:invalid_status, old_order.status, required |> format_required, action}

@@ -1,5 +1,5 @@
 defmodule Tai.Trading.Orders.Amend do
-  alias Tai.Trading.{NotifyOrderUpdate, OrderStore}
+  alias Tai.Trading.OrderStore
   alias Tai.Events
 
   defmodule Provider do
@@ -21,20 +21,18 @@ defmodule Tai.Trading.Orders.Amend do
   @spec amend(order, attrs) :: response
   def amend(order, attrs, provider \\ Provider) when is_map(attrs) do
     with action <- %OrderStore.Actions.PendAmend{client_id: order.client_id},
-         {:ok, {old, updated}} <- provider.update(action) do
-      NotifyOrderUpdate.notify!(old, updated)
-
+         {:ok, {_old, updated}} <- provider.update(action) do
       Task.async(fn ->
         try do
           updated
           |> send_amend_order(attrs)
           |> parse_response(updated.client_id, provider)
-          |> notify_updated_order()
+          |> parse_result()
         rescue
           e ->
             {e, __STACKTRACE__}
             |> rescue_venue_adapter_error(updated, provider)
-            |> notify_updated_order()
+            |> parse_result()
         end
       end)
 
@@ -77,12 +75,9 @@ defmodule Tai.Trading.Orders.Amend do
     |> provider.update()
   end
 
-  defp notify_updated_order({:ok, {old, updated}}) do
-    NotifyOrderUpdate.notify!(old, updated)
-    updated
-  end
+  defp parse_result({:ok, _}), do: :ok
 
-  defp notify_updated_order({:error, {:invalid_status, was, required, action}}) do
+  defp parse_result({:error, {:invalid_status, was, required, action}}) do
     warn_invalid_status(was, required, action)
   end
 

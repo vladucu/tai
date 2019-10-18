@@ -25,7 +25,7 @@ defmodule Tai.Trading.Orders.CancelAcceptedTest do
       {:ok, order} = Orders.create(submission)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :enqueued},
         %Order{status: :open}
       }
@@ -34,13 +34,13 @@ defmodule Tai.Trading.Orders.CancelAcceptedTest do
       assert {:ok, %Order{status: :pending_cancel}} = Orders.cancel(order)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :open},
         %Order{status: :pending_cancel} = pending_cancel_order
       }
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :pending_cancel},
         %Order{status: :cancel_accepted} = cancel_accepted_order
       }

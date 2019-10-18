@@ -22,13 +22,13 @@ defmodule Tai.Trading.Orders.CreateErrorTest do
       {:ok, _} = Orders.create(submission)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         nil,
         %Order{status: :enqueued}
       }
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :enqueued},
         %Order{status: :create_error} = error_order
       }
@@ -43,13 +43,13 @@ defmodule Tai.Trading.Orders.CreateErrorTest do
       {:ok, _} = Orders.create(submission)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         nil,
         %Order{status: :enqueued}
       }
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :enqueued},
         %Order{status: :create_error} = error_order
       }

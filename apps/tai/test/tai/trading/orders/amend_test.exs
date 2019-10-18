@@ -1,6 +1,5 @@
 defmodule Tai.Trading.Orders.AmendTest do
   use ExUnit.Case, async: false
-  import Tai.TestSupport.Helpers
   alias Tai.TestSupport.Mocks
   alias Mocks.Responses.Orders.GoodTillCancel
 
@@ -30,10 +29,9 @@ defmodule Tai.Trading.Orders.AmendTest do
       setup do
         {:ok, enqueued_order} =
           @submission_type
-          |> Support.OrderSubmissions.build(%{
+          |> Support.OrderSubmissions.build_with_callback(%{
             price: @original_price,
-            qty: @original_qty,
-            order_updated_callback: fire_order_callback(self())
+            qty: @original_qty
           })
           |> Tai.Trading.OrderStore.enqueue()
 
@@ -71,13 +69,13 @@ defmodule Tai.Trading.Orders.AmendTest do
         assert returned_order.qty == @original_qty
 
         assert_receive {
-          :callback_fired,
+          :order_updated,
           %Tai.Trading.Order{status: :open},
           %Tai.Trading.Order{status: :pending_amend} = pending_amend_order
         }
 
         assert_receive {
-          :callback_fired,
+          :order_updated,
           %Tai.Trading.Order{status: :pending_amend},
           %Tai.Trading.Order{status: :open} = amended_order
         }
@@ -103,10 +101,9 @@ defmodule Tai.Trading.Orders.AmendTest do
       setup do
         {:ok, enqueued_order} =
           @submission_type
-          |> Support.OrderSubmissions.build(%{
+          |> Support.OrderSubmissions.build_with_callback(%{
             price: @original_price,
-            qty: @original_qty,
-            order_updated_callback: fire_order_callback(self())
+            qty: @original_qty
           })
           |> Tai.Trading.OrderStore.enqueue()
 
@@ -157,13 +154,13 @@ defmodule Tai.Trading.Orders.AmendTest do
         assert returned_order.error_reason == nil
 
         assert_receive {
-          :callback_fired,
+          :order_updated,
           %Tai.Trading.Order{status: :amend_error},
           %Tai.Trading.Order{status: :pending_amend} = pending_amend_order
         }
 
         assert_receive {
-          :callback_fired,
+          :order_updated,
           %Tai.Trading.Order{status: :pending_amend},
           %Tai.Trading.Order{status: :open} = amended_order
         }

@@ -33,13 +33,13 @@ defmodule Tai.Trading.Orders.CreateExpiredTest do
       {:ok, _} = Orders.create(submission)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         nil,
         %Order{status: :enqueued}
       }
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :enqueued},
         %Order{status: :expired} = expired_order
       }

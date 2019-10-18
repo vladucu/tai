@@ -2,7 +2,6 @@ defmodule Tai.Trading.Orders.Create do
   alias Tai.Trading.OrderStore.Actions
 
   alias Tai.Trading.{
-    NotifyOrderUpdate,
     OrderStore,
     OrderResponses,
     Order,
@@ -16,7 +15,6 @@ defmodule Tai.Trading.Orders.Create do
   @spec create(submission) :: response
   def create(submission) do
     {:ok, order} = OrderStore.enqueue(submission)
-    notify_initial_updated_order(order)
 
     Task.async(fn ->
       if Tai.Settings.send_orders?() do
@@ -24,24 +22,22 @@ defmodule Tai.Trading.Orders.Create do
           order
           |> send_to_venue()
           |> parse_response()
-          |> notify_updated_order()
+          |> parse_result()
         rescue
           e ->
             {e, __STACKTRACE__}
             |> rescue_venue_adapter_error(order)
-            |> notify_updated_order()
+            |> parse_result()
         end
       else
         order.client_id
         |> skip!
-        |> notify_updated_order()
+        |> parse_result()
       end
     end)
 
     {:ok, order}
   end
-
-  defp notify_initial_updated_order(order), do: NotifyOrderUpdate.notify!(nil, order)
 
   defp send_to_venue(order) do
     result = Tai.Venue.create_order(order)
@@ -143,10 +139,9 @@ defmodule Tai.Trading.Orders.Create do
     |> OrderStore.update()
   end
 
-  defp notify_updated_order({:ok, {prev, current}}),
-    do: NotifyOrderUpdate.notify!(prev, current)
+  defp parse_result({:ok, _}), do: :ok
 
-  defp notify_updated_order({:error, {:invalid_status, _, _, %action_name{}}})
+  defp parse_result({:error, {:invalid_status, _, _, %action_name{}}})
        when action_name == Actions.AcceptCreate do
     :ok
   end

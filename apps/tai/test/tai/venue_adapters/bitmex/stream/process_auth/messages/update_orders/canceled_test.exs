@@ -1,6 +1,5 @@
 defmodule Tai.VenueAdapters.Bitmex.Stream.ProcessAuth.Messages.UpdateOrders.CanceledTest do
   use ExUnit.Case, async: false
-  import Tai.TestSupport.Assertions.Event
   alias Tai.VenueAdapters.Bitmex.ClientId
   alias Tai.VenueAdapters.Bitmex.Stream.ProcessAuth
   alias Tai.Trading.OrderStore
@@ -24,8 +23,6 @@ defmodule Tai.VenueAdapters.Bitmex.Stream.ProcessAuth.Messages.UpdateOrders.Canc
   @state struct(ProcessAuth.State, venue_id: :my_venue)
 
   test ".process/3 passively cancels the order" do
-    Events.firehose_subscribe()
-
     assert {:ok, order} = enqueue()
 
     action = struct(Tai.Trading.OrderStore.Actions.Reject, client_id: order.client_id)
@@ -39,12 +36,12 @@ defmodule Tai.VenueAdapters.Bitmex.Stream.ProcessAuth.Messages.UpdateOrders.Canc
 
     ProcessAuth.Message.process(msg, @received_at, @state)
 
-    assert_event(%Events.OrderUpdated{status: :canceled} = canceled_event)
-    assert canceled_event.venue_id == :my_venue
-    assert canceled_event.leaves_qty == Decimal.new(0)
-    assert canceled_event.qty == Decimal.new("1.1")
-    assert %DateTime{} = canceled_event.last_received_at
-    assert %DateTime{} = canceled_event.last_venue_timestamp
+    assert_receive {:order_updated, _, %Tai.Trading.Order{status: :canceled} = canceled_order}
+    assert canceled_order.venue_id == :my_venue
+    assert canceled_order.leaves_qty == Decimal.new(0)
+    assert canceled_order.qty == Decimal.new("1.1")
+    assert %DateTime{} = canceled_order.last_received_at
+    assert %DateTime{} = canceled_order.last_venue_timestamp
   end
 
   test ".process/3 broadcasts an invalid status warning" do
@@ -63,7 +60,7 @@ defmodule Tai.VenueAdapters.Bitmex.Stream.ProcessAuth.Messages.UpdateOrders.Canc
 
     ProcessAuth.Message.process(msg, @received_at, @state)
 
-    assert_event(%Events.OrderUpdateInvalidStatus{} = invalid_status_event)
+    assert_receive {Tai.Event, %Events.OrderUpdateInvalidStatus{} = invalid_status_event, :warn}
     assert invalid_status_event.action == Tai.Trading.OrderStore.Actions.PassiveCancel
     assert %DateTime{} = invalid_status_event.last_received_at
     assert %DateTime{} = invalid_status_event.last_venue_timestamp
@@ -94,7 +91,7 @@ defmodule Tai.VenueAdapters.Bitmex.Stream.ProcessAuth.Messages.UpdateOrders.Canc
 
     ProcessAuth.Message.process(msg, @received_at, @state)
 
-    assert_event(%Events.OrderUpdateNotFound{} = not_found_event)
+    assert_receive {Tai.Event, %Events.OrderUpdateNotFound{} = not_found_event, :warn}
     assert not_found_event.client_id != @venue_client_id
     assert not_found_event.action == Tai.Trading.OrderStore.Actions.PassiveCancel
   end
@@ -107,7 +104,8 @@ defmodule Tai.VenueAdapters.Bitmex.Stream.ProcessAuth.Messages.UpdateOrders.Canc
       account_id: :main,
       product_symbol: :btc_usd,
       price: Decimal.new("100.1"),
-      qty: Decimal.new("1.1")
+      qty: Decimal.new("1.1"),
+      order_updated_callback: self()
     )
   end
 end

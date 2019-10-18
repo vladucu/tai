@@ -1,6 +1,4 @@
 defmodule Support.OrderSubmissions do
-  import Tai.TestSupport.Helpers
-
   def build(type, extra_attrs \\ %{}) do
     attrs =
       %{
@@ -17,7 +15,7 @@ defmodule Support.OrderSubmissions do
   end
 
   def build_with_callback(type, extra_attrs \\ %{}) do
-    attrs = %{order_updated_callback: fire_order_callback(self())} |> Map.merge(extra_attrs)
+    attrs = %{order_updated_callback: self()} |> Map.merge(extra_attrs)
     build(type, attrs)
   end
 end

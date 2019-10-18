@@ -69,12 +69,6 @@ defmodule Tai.TestSupport.Helpers do
     Tai.Venues.Config.parse_adapters(config)
   end
 
-  def fire_order_callback(pid) do
-    fn previous_order, updated_order ->
-      send(pid, {:callback_fired, previous_order, updated_order})
-    end
-  end
-
   defp filter(type), do: test_venue_adapters() |> Map.take(type |> venues())
   defp venues(type), do: Application.get_env(:tai, type, [])
 end

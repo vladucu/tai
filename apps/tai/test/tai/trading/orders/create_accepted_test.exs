@@ -25,13 +25,13 @@ defmodule Tai.Trading.Orders.CreateAcceptedTest do
       {:ok, _} = Orders.create(submission)
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         nil,
         %Order{status: :enqueued}
       }
 
       assert_receive {
-        :callback_fired,
+        :order_updated,
         %Order{status: :enqueued} = enqueued_order,
         %Order{status: :create_accepted} = accepted_order
       }

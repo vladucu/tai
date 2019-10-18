@@ -1,5 +1,5 @@
 defmodule Tai.Trading.Orders.Cancel do
-  alias Tai.Trading.{NotifyOrderUpdate, Order, OrderStore}
+  alias Tai.Trading.{Order, OrderStore}
   alias Tai.Trading.OrderResponses.{Cancel, CancelAccepted}
 
   defmodule Provider do
@@ -18,20 +18,18 @@ defmodule Tai.Trading.Orders.Cancel do
   @spec cancel(order, module) :: response
   def cancel(%Order{client_id: client_id}, provider \\ Provider) do
     with action <- %OrderStore.Actions.PendCancel{client_id: client_id},
-         {:ok, {old, updated}} <- provider.update(action) do
-      NotifyOrderUpdate.notify!(old, updated)
-
+         {:ok, {_, updated}} <- provider.update(action) do
       Task.async(fn ->
         try do
           updated
           |> send_to_venue()
           |> parse_response(updated, provider)
-          |> notify_updated_order()
+          |> parse_result()
         rescue
           e ->
             {e, __STACKTRACE__}
             |> rescue_venue_adapter_error(updated, provider)
-            |> notify_updated_order()
+            |> parse_result()
         end
       end)
 
@@ -79,16 +77,14 @@ defmodule Tai.Trading.Orders.Cancel do
     |> provider.update()
   end
 
-  defp notify_updated_order({:ok, {previous_order, order}}) do
-    NotifyOrderUpdate.notify!(previous_order, order)
-  end
+  defp parse_result({:ok, _}), do: :ok
 
-  defp notify_updated_order({:error, {:invalid_status, _, _, %action_name{}}})
+  defp parse_result({:error, {:invalid_status, _, _, %action_name{}}})
        when action_name == OrderStore.Actions.AcceptCancel do
     :ok
   end
 
-  defp notify_updated_order({:error, {:invalid_status, was, required, action}}) do
+  defp parse_result({:error, {:invalid_status, was, required, action}}) do
     warn_invalid_status(was, required, action)
   end
 

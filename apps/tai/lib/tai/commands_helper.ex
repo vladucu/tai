@@ -24,6 +24,9 @@ defmodule Tai.CommandsHelper do
   @spec positions :: no_return
   defdelegate positions, to: Tai.Commands.Positions
 
+  @spec executions :: no_return
+  defdelegate executions, to: Tai.Commands.Executions
+
   @spec orders :: no_return
   defdelegate orders, to: Tai.Commands.Orders
 
